@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Contacts CRM</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root{ --brand:#1976d2; --brand-2:#135ba1; --bg:#f7f7fa; --card:#fff; --text:#111; --muted:#666; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  header{ position:sticky; top:0; background:var(--brand); color:#fff; padding:14px 16px; z-index:10; }
+  header h1{ margin:0; font-size:1.1rem; }
+  .container{ padding:12px; max-width:980px; margin:0 auto; }
+  .hidden{ display:none !important; }
+  .card{ background:var(--card); border-radius:12px; padding:14px; margin:10px 0; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  input, select, textarea, button{ width:100%; padding:14px; border-radius:12px; border:1px solid #ddd; font-size:16px; }
+  textarea{ min-height:90px; }
+  button{ background:var(--brand); color:#fff; border:none; font-weight:600; }
+  button:active{ transform:scale(.99); }
+  button.secondary{ background:#e9edf5; color:#0b2a4a; border:1px solid #d7deea; }
+  button.warn{ background:#ff5252; }
+  .toolbar{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; }
+  .toolbar-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0; }
+  .pill{ display:inline-block; padding:8px 12px; border-radius:999px; background:#eef4ff; color:#1b3b6f; font-size:12px; margin-right:6px; }
+  .flex{ display:flex; gap:8px; }
+  .space{ height:8px; }
+  .footer-actions{ position:fixed; bottom:12px; left:0; right:0; padding:0 12px; max-width:980px; margin:0 auto; display:flex; gap:8px; }
+  .tap{ min-height:54px; }
+  .label{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+  canvas{ max-width:100%; }
+  @media (min-width:720px){
+    .toolbar{ grid-template-columns:2fr 1fr; }
+    .toolbar-3{ grid-template-columns:2fr 1fr 1fr; }
+    .row-2col{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  }
+</style>
+</head>
+<body>
+
+<header><h1>Contacts CRM</h1></header>
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="loginView" class="card">
+    <h2 style="margin-top:0">Login</h2>
+    <div class="space"></div>
+    <input id="loginEmail" type="email" placeholder="Email" class="tap" />
+    <input id="loginPassword" type="password" placeholder="Password" class="tap" />
+    <div class="row">
+      <button class="tap" onclick="login()">Log in</button>
+      <button class="tap secondary" onclick="signup()">Create account</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboardView" class="hidden">
+    <div class="row">
+      <button class="tap secondary" onclick="showContacts()">Contacts</button>
+      <button class="tap secondary" onclick="showBulk()">Bulk Upload</button>
+      <button class="tap secondary" onclick="logout()">Logout</button>
+    </div>
+
+    <div class="space"></div>
+    <div class="card">
+      <h2 style="margin-top:0">Summary</h2>
+      <div id="statLine" class="label">Loading stats…</div>
+      <div class="space"></div>
+      <div class="row">
+        <div class="pill" id="statTotal">Total: 0</div>
+        <div class="pill" id="statWithEmail">With email: 0</div>
+        <div class="pill" id="statWithMobile">With mobile: 0</div>
+      </div>
+      <div class="space"></div>
+      <canvas id="countryChart"></canvas>
+      <div class="space"></div>
+      <canvas id="companyChart"></canvas>
+      <div class="space"></div>
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- CONTACTS -->
+  <div id="contactsView" class="hidden">
+    <div class="card">
+      <div class="toolbar-3">
+        <input id="searchInput" placeholder="Search (name, company, email…)" oninput="resetAndLoad()" />
+        <select id="filterCountry" onchange="resetAndLoad()">
+          <option value="">All countries</option>
+        </select>
+        <select id="filterCompany" onchange="resetAndLoad()">
+          <option value="">All companies</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="tap" onclick="showEditor()">➕ Add Contact</button>
+        <button class="tap secondary" onclick="exportCSV()">Export CSV</button>
+        <button class="tap secondary" onclick="showDashboard()">Dashboard</button>
+      </div>
+    </div>
+
+    <div id="results"></div>
+
+    <div class="space"></div>
+    <button id="loadMoreBtn" class="tap hidden" onclick="loadMore()">Load more</button>
+  </div>
+
+  <!-- EDITOR -->
+  <div id="editorView" class="hidden card">
+    <h2 id="editorTitle" style="margin-top:0">Add Contact</h2>
+    <div class="row-2col">
+      <div>
+        <div class="label">Full Name</div>
+        <input id="f_FullName" class="tap" />
+      </div>
+      <div>
+        <div class="label">Job Title</div>
+        <input id="f_job_title" class="tap" />
+      </div>
+      <div>
+        <div class="label">Department</div>
+        <input id="f_department" class="tap" />
+      </div>
+      <div>
+        <div class="label">Company</div>
+        <input id="f_company" class="tap" />
+      </div>
+      <div>
+        <div class="label">Org Type</div>
+        <input id="f_org_type" class="tap" />
+      </div>
+      <div>
+        <div class="label">Address</div>
+        <input id="f_address" class="tap" />
+      </div>
+      <div>
+        <div class="label">City</div>
+        <input id="f_city" class="tap" />
+      </div>
+      <div>
+        <div class="label">Country</div>
+        <input id="f_country" class="tap" />
+      </div>
+      <div>
+        <div class="label">Country Code</div>
+        <input id="f_country_code" class="tap" placeholder="e.g., SG, PH" />
+      </div>
+      <div>
+        <div class="label">Office Numbers (comma/semicolon separated)</div>
+        <input id="f_office_number" class="tap" />
+      </div>
+      <div>
+        <div class="label">Mobile Numbers (comma/semicolon separated)</div>
+        <input id="f_mobile_number" class="tap" />
+      </div>
+      <div>
+        <div class="label">Fax Numbers (comma/semicolon separated)</div>
+        <input id="f_fax_number" class="tap" />
+      </div>
+      <div>
+        <div class="label">Emails (comma/semicolon separated)</div>
+        <input id="f_email" class="tap" />
+      </div>
+      <div>
+        <div class="label">Website</div>
+        <input id="f_website" class="tap" />
+      </div>
+      <div style="grid-column:1 / -1;">
+        <div class="label">Notes</div>
+        <textarea id="f_notes" class="tap"></textarea>
+      </div>
+      <div style="grid-column:1 / -1;">
+        <div class="label">QR Text (optional)</div>
+        <input id="f_qrtext" class="tap" placeholder="Plain text to render as QR" />
+      </div>
+    </div>
+    <div class="row">
+      <button class="tap" onclick="saveCurrent()">Save</button>
+      <button class="tap secondary" onclick="showContacts()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- BULK UPLOAD -->
+  <div id="bulkView" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Bulk CSV Upload</h2>
+      <div class="label">Upload a CSV with headers:
+        <code>FullName,job_title,department,Company,org_type,Address,city,country,country_code,office_number,mobile_number,fax_number,Email,Website,updated_at</code>
+      </div>
+      <input id="csvFile" type="file" accept=".csv" class="tap" />
+      <div class="row">
+        <button class="tap" onclick="bulkUpload()">Upload to Firestore</button>
+        <button class="tap secondary" onclick="showDashboard()">Back</button>
+      </div>
+      <div id="bulkLog" class="label" style="white-space:pre-wrap;margin-top:8px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- LIBS: Firebase (compat), Chart.js, PapaParse, QRCode -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+
+<script>
+/* -------------------- Firebase Config -------------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyB5lFiB9grDsedR9osrB2zvE71l91zHjz0",
+  authDomain: "va-solutions-eadd3.firebaseapp.com",
+  projectId: "va-solutions-eadd3",
+  storageBucket: "va-solutions-eadd3.appspot.com", // fixed
+  messagingSenderId: "365317326824",
+  appId: "1:365317326824:web:d6f4ad9d09c2bf0b20865d",
+  measurementId: "G-SF7LBZWS2V"
+};
+firebase.initializeApp(firebaseConfig);
+firebase.analytics?.();
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* Offline cache */
+db.enablePersistence({ synchronizeTabs: true }).catch(()=>{/* ignore if not supported */});
+
+/* -------------------- Global State -------------------- */
+let currentUser = null;
+let editingId = null;
+let lastDoc = null;             // for pagination
+const PAGE_SIZE = 25;
+let cachedDocs = [];            // current list shown (for CSV export)
+let allCountries = new Set();
+let allCompanies = new Set();
+
+/* -------------------- Auth -------------------- */
+auth.onAuthStateChanged(u=>{
+  currentUser = u;
+  if(u){ showDashboard(); }
+  else { showOnly('loginView'); }
+});
+
+function login(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  auth.signInWithEmailAndPassword(email, password).catch(err=>alert(err.message));
+}
+function signup(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  auth.createUserWithEmailAndPassword(email, password).catch(err=>alert(err.message));
+}
+function logout(){ auth.signOut(); }
+
+/* -------------------- View helpers -------------------- */
+function showOnly(id){
+  for(const el of document.querySelectorAll('.container > *')){ el.classList.add('hidden'); }
+  document.getElementById(id).classList.remove('hidden');
+}
+function showDashboard(){ showOnly('dashboardView'); loadDashboard(); }
+function showContacts(){ showOnly('contactsView'); resetAndLoad(); }
+function showEditor(doc){ showOnly('editorView'); openEditor(doc); }
+function showBulk(){ showOnly('bulkView'); }
+
+/* -------------------- Dashboard & Charts -------------------- */
+async function loadDashboard(){
+  const snap = await db.collection('contacts').get();
+  const docs = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  // Stats
+  const total = docs.length;
+  const withEmail = docs.filter(d=>Array.isArray(d.email) && d.email.length>0).length;
+  const withMobile = docs.filter(d=>Array.isArray(d.mobile_number) && d.mobile_number.length>0).length;
+  document.getElementById('statTotal').innerText = `Total: ${total}`;
+  document.getElementById('statWithEmail').innerText = `With email: ${withEmail}`;
+  document.getElementById('statWithMobile').innerText = `With mobile: ${withMobile}`;
+  document.getElementById('statLine').innerText = `Coverage: Email ${(withEmail/Math.max(1,total)*100).toFixed(0)}% · Mobile ${(withMobile/Math.max(1,total)*100).toFixed(0)}%`;
+
+  // Country distribution
+  const countryCount = {};
+  const companyCount = {};
+  const monthlyCount = {};
+  docs.forEach(d=>{
+    const c = (d.country || 'Unknown').trim() || 'Unknown';
+    countryCount[c] = (countryCount[c]||0)+1;
+    const comp = (d.company || 'Unknown').trim() || 'Unknown';
+    companyCount[comp] = (companyCount[comp]||0)+1;
+
+    const ts = d.created_at?.toDate ? d.created_at.toDate() : (d.updated_at ? new Date(d.updated_at) : null);
+    if(ts){
+      const key = ts.getFullYear()+"-"+String(ts.getMonth()+1).padStart(2,'0');
+      monthlyCount[key] = (monthlyCount[key]||0)+1;
+    }
+  });
+
+  renderChart('countryChart','pie', countryCount);
+  renderChart('companyChart','bar', topN(companyCount, 10));
+  renderChart('monthlyChart','line', sortByKey(monthlyCount));
+}
+
+function topN(obj, n){
+  const arr = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n);
+  return Object.fromEntries(arr);
+}
+function sortByKey(obj){
+  return Object.fromEntries(Object.entries(obj).sort((a,b)=>a[0].localeCompare(b[0])));
+}
+function renderChart(id, type, dataObj){
+  const ctx = document.getElementById(id).getContext('2d');
+  new Chart(ctx,{
+    type,
+    data: { labels:Object.keys(dataObj), datasets:[{ data:Object.values(dataObj) }] },
+    options: { responsive:true, plugins:{ legend:{ display:type!=='bar' } } }
+  });
+}
+
+/* -------------------- Contacts: Search + Filters + Pagination -------------------- */
+function resetAndLoad(){
+  lastDoc = null;
+  cachedDocs = [];
+  document.getElementById('results').innerHTML = '';
+  loadFilters();   // refresh dropdowns (first page only)
+  loadMore();
+}
+
+async function loadFilters(){
+  // Build country & company pickers from first 200 docs to avoid huge reads.
+  const snap = await db.collection('contacts').orderBy('FullName').limit(200).get();
+  allCountries.clear(); allCompanies.clear();
+  snap.forEach(doc=>{
+    const d = doc.data();
+    if(d.country) allCountries.add(d.country);
+    if(d.company) allCompanies.add(d.company);
+  });
+  const countrySel = document.getElementById('filterCountry');
+  const companySel = document.getElementById('filterCompany');
+  const countryVal = countrySel.value, companyVal = companySel.value;
+  countrySel.innerHTML = `<option value="">All countries</option>` + [...allCountries].sort().map(c=>`<option>${c}</option>`).join('');
+  companySel.innerHTML = `<option value="">All companies</option>` + [...allCompanies].sort().map(c=>`<option>${c}</option>`).join('');
+  if(countryVal) countrySel.value = countryVal;
+  if(companyVal) companySel.value = companyVal;
+}
+
+async function loadMore(){
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const fCountry = document.getElementById('filterCountry').value;
+  const fCompany = document.getElementById('filterCompany').value;
+
+  let q = db.collection('contacts').orderBy('FullName').limit(PAGE_SIZE);
+  if(lastDoc){ q = q.startAfter(lastDoc); }
+  const snap = await q.get();
+
+  const rows = [];
+  snap.forEach(doc=>{
+    const d = {id:doc.id, ...doc.data()};
+    if(search && !(d.search_keywords||"").includes(search)) return;
+    if(fCountry && (d.country||"") !== fCountry) return;
+    if(fCompany && (d.company||"") !== fCompany) return;
+    rows.push(d);
+  });
+
+  if(snap.docs.length>0) lastDoc = snap.docs[snap.docs.length-1];
+  // Append to UI
+  rows.forEach(renderCard);
+  cachedDocs.push(...rows);
+
+  document.getElementById('loadMoreBtn').classList.toggle('hidden', snap.empty || snap.size < PAGE_SIZE);
+}
+
+function renderCard(d){
+  const el = document.createElement('div');
+  el.className = 'card';
+  const emails = Array.isArray(d.email) ? d.email.join(', ') : (d.email||'');
+  const mobiles = Array.isArray(d.mobile_number) ? d.mobile_number.join(', ') : (d.mobile_number||'');
+  const offices = Array.isArray(d.office_number) ? d.office_number.join(', ') : (d.office_number||'');
+  const faxes = Array.isArray(d.fax_number) ? d.fax_number.join(', ') : (d.fax_number||'');
+  el.innerHTML = `
+    <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:700">${escapeHtml(d.FullName||'(No name)')}</div>
+        <div class="label">${escapeHtml(d.job_title||'')} ${d.company?(' @ '+escapeHtml(d.company)) : ''}</div>
+        <div class="label">${escapeHtml(d.department||'')} ${escapeHtml(d.org_type||'')}</div>
+        <div class="label">${escapeHtml(d.address||'')} ${escapeHtml(d.city||'')} ${escapeHtml(d.country||'')}</div>
+        ${emails? `<div class="pill">📧 ${escapeHtml(emails)}</div>`:''}
+        ${mobiles? `<div class="pill">📱 ${escapeHtml(mobiles)}</div>`:''}
+        ${offices? `<div class="pill">☎️ ${escapeHtml(offices)}</div>`:''}
+        ${faxes? `<div class="pill">📠 ${escapeHtml(faxes)}</div>`:''}
+        ${d.tag? `<div class="pill">🏷 ${escapeHtml(d.tag)}</div>`:''}
+      </div>
+      <div style="min-width:220px; display:flex; gap:6px;">
+        <button class="tap" onclick='openEditor(${JSON.stringify(d.id)})'>Edit</button>
+        <button class="tap warn" onclick='del("${d.id}")'>Delete</button>
+      </div>
+    </div>
+    <div class="space"></div>
+    <div class="label">Notes</div>
+    <div>${escapeHtml(d.notes||'—')}</div>
+    ${d.QR_text ? `<div class="space"></div><div id="qr_${d.id}"></div>` : ''}
+  `;
+  document.getElementById('results').appendChild(el);
+  if(d.QR_text){
+    new QRCode(document.getElementById('qr_'+d.id), { text: d.QR_text, width:128, height:128 });
+  }
+}
+
+/* -------------------- Create / Edit -------------------- */
+async function openEditor(id){
+  showOnly('editorView');
+  editingId = null;
+  document.getElementById('editorTitle').innerText = id ? "Edit Contact" : "Add Contact";
+  // reset fields
+  for(const fid of ['f_FullName','f_job_title','f_department','f_company','f_org_type','f_address','f_city','f_country','f_country_code','f_office_number','f_mobile_number','f_fax_number','f_email','f_website','f_notes','f_qrtext']){
+    document.getElementById(fid).value = '';
+  }
+
+  if(id){
+    const doc = await db.collection('contacts').doc(id).get();
+    const d = doc.data();
+    editingId = id;
+    document.getElementById('f_FullName').value = d.FullName||'';
+    document.getElementById('f_job_title').value = d.job_title||'';
+    document.getElementById('f_department').value = d.department||'';
+    document.getElementById('f_company').value = d.company||'';
+    document.getElementById('f_org_type').value = d.org_type||'';
+    document.getElementById('f_address').value = d.address||'';
+    document.getElementById('f_city').value = d.city||'';
+    document.getElementById('f_country').value = d.country||'';
+    document.getElementById('f_country_code').value = d.country_code||'';
+    document.getElementById('f_office_number').value = (d.office_number||[]).join(', ');
+    document.getElementById('f_mobile_number').value = (d.mobile_number||[]).join(', ');
+    document.getElementById('f_fax_number').value = (d.fax_number||[]).join(', ');
+    document.getElementById('f_email').value = (d.email||[]).join(', ');
+    document.getElementById('f_website').value = d.website||'';
+    document.getElementById('f_notes').value = d.notes||'';
+    document.getElementById('f_qrtext').value = d.QR_text||'';
+  }
+}
+
+function splitList(v){ return v ? v.split(/[;,]/).map(s=>s.trim()).filter(Boolean) : []; }
+function buildSearchKeywords(obj){
+  const fields = [
+    obj.FullName, obj.job_title, obj.department, obj.company, (obj.email||[]).join(" "),
+    obj.address, obj.city, obj.country, obj.org_type
+  ].map(x=>x||'');
+  return fields.join(' ').toLowerCase();
+}
+
+async function saveCurrent(){
+  const data = {
+    FullName: val('f_FullName'),
+    job_title: val('f_job_title'),
+    department: val('f_department'),
+    company: val('f_company'),
+    org_type: val('f_org_type'),
+    address: val('f_address'),
+    city: val('f_city'),
+    country: val('f_country'),
+    country_code: val('f_country_code'),
+    office_number: splitList(val('f_office_number')),
+    mobile_number: splitList(val('f_mobile_number')),
+    fax_number: splitList(val('f_fax_number')),
+    email: splitList(val('f_email')),
+    website: val('f_website'),
+    notes: val('f_notes'),
+    QR_text: val('f_qrtext'),
+    tag: "Bernadette",
+    updated_at: new Date().toISOString(),
+    updated_by: currentUser?.email || "",
+    search_keywords: "" // fill after
+  };
+  data.search_keywords = buildSearchKeywords(data);
+
+  if(editingId){
+    await db.collection('contacts').doc(editingId).set(data, { merge:true });
+    alert('Updated.');
+  }else{
+    data.created_at = firebase.firestore.FieldValue.serverTimestamp();
+    data.created_by = currentUser?.email || "";
+    await db.collection('contacts').add(data);
+    alert('Created.');
+  }
+  showContacts();
+}
+
+/* -------------------- Delete -------------------- */
+async function del(id){
+  if(confirm('Delete this contact?')){
+    await db.collection('contacts').doc(id).delete();
+    document.getElementById('results').innerHTML = '';
+    resetAndLoad();
+  }
+}
+
+/* -------------------- CSV Export -------------------- */
+function exportCSV(){
+  if(cachedDocs.length === 0){ alert('Nothing to export.'); return; }
+  const headers = ["FullName","job_title","department","company","org_type","address","city","country","country_code","office_number","mobile_number","fax_number","email","website","notes","tag","updated_at","created_by","updated_by"];
+  const rows = [headers.join(",")];
+  cachedDocs.forEach(d=>{
+    const row = [
+      d.FullName||"", d.job_title||"", d.department||"", d.company||"", d.org_type||"",
+      d.address||"", d.city||"", d.country||"", d.country_code||"",
+      (d.office_number||[]).join("; "), (d.mobile_number||[]).join("; "), (d.fax_number||[]).join("; "),
+      (d.email||[]).join("; "), d.website||"", (d.notes||"").replace(/\n/g," ").trim(), d.tag||"",
+      d.updated_at||"", d.created_by||"", d.updated_by||""
+    ].map(csvEscape);
+    rows.push(row.join(","));
+  });
+  const blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = "contacts_export.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(val){
+  const s = (val??"").toString();
+  if(/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+  return s;
+}
+
+/* -------------------- Bulk Upload -------------------- */
+function bulkUpload(){
+  const file = document.getElementById('csvFile').files[0];
+  if(!file){ alert('Choose a CSV file first.'); return; }
+  const log = (m)=>{ const el = document.getElementById('bulkLog'); el.textContent += m + "\n"; };
+
+  Papa.parse(file, {
+    header:true,
+    skipEmptyLines:true,
+    complete: async function(results){
+      const rows = results.data;
+      log(`Parsed ${rows.length} rows. Uploading...`);
+      let created=0, updated=0;
+      for(const row of rows){
+        // Normalize per our schema
+        const docId = buildDocId(row["FullName"], row["Company"]);
+        const ref = docId ? db.collection('contacts').doc(docId) : db.collection('contacts').doc();
+        const data = {
+          FullName: (row["FullName"]||"").trim(),
+          job_title: (row["job_title"]||"").trim(),
+          department: (row["department"]||"").trim(),
+          company: (row["Company"]||"").trim(),
+          org_type: (row["org_type"]||"").trim(),
+          address: (row["Address"]||"").trim(),
+          city: (row["city"]||"").trim(),
+          country: (row["country"]||"").trim(),
+          country_code: (row["country_code"]||"").trim(),
+          office_number: splitList(row["office_number"]||""),
+          mobile_number: splitList(row["mobile_number"]||""),
+          fax_number: splitList(row["fax_number"]||""),
+          email: splitList(row["Email"]||""),
+          website: (row["Website"]||"").trim(),
+          tag: "Bernadette",
+          notes: (row["notes"]||"").trim(),
+          updated_at: row["updated_at"] || new Date().toISOString(),
+          updated_by: currentUser?.email || "",
+          search_keywords: ""
+        };
+        data.search_keywords = buildSearchKeywords(data);
+
+        const snap = await ref.get();
+        if(snap.exists){ await ref.set(data, {merge:true}); updated++; }
+        else { data.created_at = firebase.firestore.FieldValue.serverTimestamp(); data.created_by = currentUser?.email || ""; await ref.set(data); created++; }
+      }
+      log(`Done. Created: ${created}, Updated: ${updated}`);
+      alert('Bulk upload completed.');
+    }
+  });
+}
+
+function buildDocId(fullName, company){
+  function safe(s){
+    return (s||"").toLowerCase().trim()
+      .replace(/@/g,'_at_')
+      .replace(/[^\w.\-]+/g,'_')
+      .slice(0,200);
+  }
+  const a = safe(fullName), b = safe(company);
+  if(!a && !b) return null;
+  return [a,b].filter(Boolean).join('_');
+}
+
+/* -------------------- Utils -------------------- */
+function val(id){ return document.getElementById(id).value; }
+function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+</script>
+
+<!-- Optional: Firestore rules you should set in Console:
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if request.auth != null; }
+    match /contacts/{docId} { allow read, write: if request.auth != null; }
+  }
+}
+-->
+</body>
+</html>

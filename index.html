@@ -290,6 +290,7 @@
     }
 
     const arr = v => Array.isArray(v) ? v : (v ? [v] : []);
+
     function normalizeDoc(x){
       const updatedIso = (x.updated_at && typeof x.updated_at.toDate === 'function') ? x.updated_at.toDate().toISOString() : (x.updated_at || '');
       return {
@@ -318,13 +319,85 @@
         search_keywords: (x.search_keywords) ? String(x.search_keywords) : buildSearchKeywords(x),
       };
     }
+
     function buildSearchKeywords(x){
+      const toArr = v => Array.isArray(v) ? v : (v ? [v] : []);
       const parts = [
         x.FullName,x.job_title,x.department,x.Company||x.company,x.org_type,x.Address||x.address,x.city,x.country,x.country_code,
         x.inferred_seniority,x.inferred_name_origin,x.inferred_region,x.inferred_contact_tier,x.network_cluster,x.tag,
-        arr(x.Email).join(' '), arr(x.office_number).join(' '), arr(x.mobile_number).join(' '), arr(x.fax_number).join(' ')
+        toArr(x.Email).join(' '), toArr(x.office_number).join(' '), toArr(x.mobile_number).join(' '), toArr(x.fax_number).join(' ')
       ].filter(Boolean);
       return parts.join(' ').toLowerCase();
+    }
+
+    /* ================= Email / Phone Sanitizers (PATCH) ================= */
+    const EMAIL_RX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+    function validEmail(s){ return EMAIL_RX.test(String(s||'')); }
+    function extractEmails(s){
+      const text = String(s||'');
+      const matches = text.match(new RegExp(EMAIL_RX, 'gi')) || [];
+      return matches;
+    }
+    function firstEmail(r){
+      const fromArray = arr(r.Email).filter(validEmail);
+      if(fromArray.length) return fromArray[0];
+      // Sometimes "Website" or other fields accidentally hold an email—use as fallback.
+      const fromWebsite = extractEmails(r.Website);
+      if(fromWebsite.length) return fromWebsite[0];
+      const fromKeywords = extractEmails(r.search_keywords);
+      return fromKeywords[0] || '';
+    }
+
+    // Minimal country -> calling code map for normalizing phones
+    const CC_MAP = {
+      SG:'65','Singapore':'65',
+      ID:'62','Indonesia':'62',
+      PH:'63','Philippines':'63',
+      MY:'60','Malaysia':'60',
+      TH:'66','Thailand':'66',
+      VN:'84','Vietnam':'84',
+      US:'1','United States':'1'
+    };
+
+    function digitsOnly(s){ return String(s||'').replace(/\D/g,''); }
+
+    function toE164(raw, country, countryCode){
+      let num = String(raw||'').trim();
+      if(!num) return '';
+      const digits = digitsOnly(num);
+      if(!digits) return '';
+      const cc = CC_MAP[countryCode] || CC_MAP[country] || '';
+      // If already has +, keep digits as is with a plus
+      if(num.startsWith('+')) return '+' + digits;
+      // Strip leading 00 (international prefix)
+      if(digits.startsWith('00')) return '+' + digits.slice(2);
+      // If number already starts with country code, add plus
+      if(cc && digits.startsWith(cc)) return '+' + digits;
+      // If leading 0 national format, replace with country code
+      if(cc && digits.startsWith('0')) return '+' + cc + digits.slice(1);
+      // If length looks local and we know a country, prefix it
+      if(cc && digits.length >= 8 && digits.length <= 11) return '+' + cc + digits;
+      // Fallback: best-effort with plus
+      return '+' + digits;
+    }
+
+    function firstPhone(r){
+      const candidates = [...arr(r.mobile_number), ...arr(r.office_number)]
+        .map(v=>String(v||'').trim())
+        .filter(v => v && digitsOnly(v).length >= 7 && !/^[A-Za-z]{2}$/.test(v)); // filter out stray "ID", etc.
+      if(!candidates.length) return '';
+      return toE164(candidates[0], r.country, r.country_code);
+    }
+
+    function safeWebsite(raw, emailCandidate){
+      const val = String(raw||'').trim();
+      if(!val) return '';
+      // If it's actually an email, don't put under Website (unless we had no email at all).
+      if(EMAIL_RX.test(val)) return emailCandidate ? '' : val;
+      // Add protocol if looks like a domain
+      if(/^[\w.-]+\.[a-z]{2,}/i.test(val) && !/^https?:\/\//i.test(val)) return 'https://' + val;
+      return val;
     }
 
     /* ================= Filters & Search ================= */
@@ -352,9 +425,11 @@
 
     /* ================= Rendering ================= */
     function escapeHtml(s){ return String(s||'').replace(/[&<>\"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
-    function firstEmail(r){ return (r.Email && r.Email[0]) || ''; }
-    function firstPhone(r){ return (r.mobile_number && r.mobile_number[0]) || (r.office_number && r.office_number[0]) || ''; }
-    function waLink(num){ const digits = String(num||'').replace(/\D/g,''); return digits ? `https://wa.me/${digits}` : '#'; }
+
+    function waLink(num){
+      const d = digitsOnly(num);
+      return d ? `https://wa.me/${d}` : '#';
+    }
 
     let lastRenderedRows = [];
 
@@ -366,6 +441,7 @@
       const fTag = $('f_tag').value;
 
       let rows = contacts.slice();
+      // Free text search across prepared keywords
       if(q) rows = rows.filter(r => (r.search_keywords||'').includes(q));
       if(fCountry) rows = rows.filter(r => r.country === fCountry);
       if(fCity) rows = rows.filter(r => r.city === fCity);
@@ -383,6 +459,8 @@
       for(const r of rows){
         const email = firstEmail(r);
         const phone = firstPhone(r);
+        const website = safeWebsite(r.Website, email);
+
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
@@ -400,8 +478,8 @@
             <button class="copy" title="Copy number" data-copy="${escapeHtml(phone)}">📋</button>
           </div>` : ''}
 
-          ${r.Website ? `<div class="inline">Website:
-            <a href="${escapeHtml(r.Website)}" target="_blank" rel="noopener">${escapeHtml(r.Website)}</a>
+          ${website ? `<div class="inline">Website:
+            <a href="${escapeHtml(website)}" target="_blank" rel="noopener">${escapeHtml(website)}</a>
           </div>` : ''}
         `;
 
@@ -425,13 +503,22 @@
       }
     }
 
-    /* ================= Export CSV ================= */
+    /* ================= Export CSV (PATCHED) ================= */
+    function csvEscape(v){
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }
+
     $('exportBtn').addEventListener('click', ()=>{
+      // Exact header order expected by your sample CSV
       const cols = ['FullName','Email','Phone','Company','city','country','org_type','tag','Website'];
       const lines = [cols.join(',')];
+
       for(const r of lastRenderedRows){
         const email = firstEmail(r);
         const phone = firstPhone(r);
+        const website = safeWebsite(r.Website, email);
+
         const vals = [
           r.FullName||'',
           email,
@@ -441,14 +528,20 @@
           r.country||'',
           r.org_type||'',
           r.tag||'',
-          r.Website||'',
-        ].map(v=> `"${String(v).replace(/"/g,'""')}"`);
+          website||'',
+        ].map(csvEscape);
+
         lines.push(vals.join(','));
       }
-      const blob = new Blob([lines.join('\n')], { type:'text/csv' });
+
+      // UTF-8 BOM for Excel compatibility, CRLF line endings
+      const csv = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = 'contacts_export.csv'; a.click();
+      const ts = new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
+      a.href = url; a.download = `contacts_export_${ts}.csv`;
+      a.click();
       URL.revokeObjectURL(url);
     });
 

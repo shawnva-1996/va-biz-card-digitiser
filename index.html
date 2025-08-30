@@ -1,442 +1,568 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Contacts CRM</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style>
-  :root{
-    --brand:#1976d2; --brand-dark:#135ba1;
-    --bg:#f5f6fa; --card:#fff;
-    --text:#111; --muted:#667085;
-    --danger:#ff4d4f; --secondary:#e9edf5;
-    --ring:#d0e3ff;
-  }
-  *{ box-sizing:border-box; }
-  body{ margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); }
-  header{ position:sticky; top:0; background:var(--brand); color:#fff; padding:18px 16px; font-size:1.25rem; font-weight:700; text-align:center; z-index:100; }
-  .container{ padding:16px; max-width:900px; margin:0 auto; }
-  .hidden{ display:none !important; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contacts CRM (Firestore)</title>
+  <style>
+    :root{
+      --brand:#1976d2; --brand-dark:#115293;
+      --accent:#22c55e; --danger:#ef4444; --warning:#f59e0b;
 
-  /* Inputs + Buttons (big, finger friendly) */
-  input, select, textarea, button{
-    width:100%; padding:16px; border-radius:14px; border:1px solid #e5e7eb; font-size:17px; line-height:1.2;
-  }
-  input:focus, select:focus, textarea:focus{
-    outline:none; box-shadow:0 0 0 4px var(--ring);
-  }
-  button{ background:var(--brand); color:#fff; border:none; font-weight:700; cursor:pointer; min-height:56px; }
-  button:active{ transform:scale(.98); }
-  button.secondary{ background:var(--secondary); color:#0b2a4a; }
-  button.warn{ background:var(--danger); color:#fff; }
+      --bg-light:#ffffff; --text-light:#111; --muted-light:#667085; --card-light:#f9fafb; --border-light:#e5e7eb; --input-light:#f3f4f6;
 
-  /* Layout blocks */
-  .toolbar{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
-  .card{ background:var(--card); border-radius:16px; padding:20px; margin:14px 0; box-shadow:0 2px 10px rgba(0,0,0,.06); }
-  .card h3{ margin:0; font-size:1.25rem; }
-  .sub{ color:var(--muted); font-size:1rem; margin:6px 0; line-height:1.45; }
-  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
-  .pill{ display:inline-flex; align-items:center; gap:8px; padding:12px 14px; border-radius:999px; background:#eef4ff; font-size:.95rem; min-height:44px; }
-  .pill a{ text-decoration:none; color:inherit; }
-  .actions{ display:flex; gap:12px; margin-top:16px; }
-  .actions button{ flex:1; }
-  .notes{ margin-top:14px; font-size:1rem; color:var(--muted); line-height:1.45; }
-  a.link{ color:var(--brand); text-decoration:none; font-weight:700; word-break:break-word; }
+      --bg-dark:#0f172a; --text-dark:#e5eefb; --muted-dark:#9aa4b2; --card-dark:#0b1221; --border-dark:#1c2741; --input-dark:#0b1426;
+    }
+    html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    body.light{background:var(--bg-light);color:var(--text-light)}
+    body.dark{background:linear-gradient(180deg,var(--card-dark),var(--bg-dark));color:var(--text-dark)}
 
-  /* Floating Add (only for non-restricted users) */
-  .fab{ position:fixed; right:16px; bottom:20px; background:var(--brand); color:#fff; border-radius:999px; width:64px; height:64px; display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:0 10px 20px rgba(25,118,210,.35); border:none; cursor:pointer; }
-  .fab:active{ transform:scale(.98); }
+    .hidden{display:none !important}
 
-  /* Email chooser modal */
-  .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:flex-end; justify-content:center; padding:16px; }
-  .sheet{ background:#fff; width:100%; max-width:560px; border-radius:16px 16px 0 0; padding:12px; }
-  .sheet h4{ margin:8px 12px 4px; }
-  .provider{ display:flex; align-items:center; gap:12px; padding:14px; border-radius:12px; border:1px solid #e5e7eb; margin:8px 0; font-size:17px; }
-  .provider:active{ background:#f3f6ff; }
-  .provider span{ font-weight:600; }
+    /* ---------- LOGIN SCREEN ---------- */
+    .login-wrap{
+      min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .login-card{
+      width:100%; max-width:420px; border:1px solid; border-radius:16px; padding:18px;
+    }
+    body.dark .login-card{background:var(--card-dark); border-color:var(--border-dark)}
+    body.light .login-card{background:var(--card-light); border-color:var(--border-light)}
+    .login-card h1{margin:0 0 8px 0; font-size:20px}
+    .login-card p{margin:0 0 12px 0; opacity:.8}
+    .login-row{display:flex; gap:8px; flex-wrap:wrap}
+    .login-row input{flex:1 1 180px; min-height:46px; border-radius:12px; border:1px solid; padding:12px}
+    body.dark .login-row input{background:var(--input-dark); border-color:#1e2a43; color:var(--text-dark)}
+    body.light .login-row input{background:var(--input-light); border-color:var(--border-light); color:var(--text-light)}
+    .btn{display:inline-flex; align-items:center; gap:.5rem; padding:12px 14px; border-radius:12px; border:1px solid transparent; background:var(--brand); color:#fff; font-weight:700; cursor:pointer; text-decoration:none; min-height:44px}
+    .btn.secondary{background:transparent; border:1px solid}
+    body.dark .btn.secondary{color:var(--text-dark); border-color:#22314f}
+    body.light .btn.secondary{color:var(--text-light); border-color:var(--border-light); background:var(--input-light)}
+    .btn.danger{background:var(--danger); color:#fff}
 
-  /* Editor grid (mobile-first) */
-  .grid{ display:grid; gap:12px; }
-  @media (min-width:720px){
-    .grid.cols-2{ grid-template-columns:1fr 1fr; }
-  }
+    /* ---------- APP SHELL ---------- */
+    .app{max-width:980px;margin:0 auto;padding:12px 12px 96px}
+    header{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);padding:8px;border-bottom:1px solid;display:block;overflow:visible}
+    body.dark header{background:rgba(11,18,33,.85);border-color:#1e293b}
+    body.light header{background:rgba(255,255,255,.9);border-color:var(--border-light)}
+    .row{display:flex;gap:8px;align-items:center}
+    .wrap{flex-wrap:wrap}
+    .grow{flex:1}
+    .toolbar{display:flex;gap:8px;align-items:center}
+    .header-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .search{position:relative;flex:1 1 480px;min-width:260px}
+    .search input{width:100%;padding:12px 12px 12px 42px;border-radius:12px;border:1px solid;min-height:44px;font-size:16px}
+    .search .icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.7}
+    body.dark .search input{background:var(--input-dark);border-color:#1e2a43;color:var(--text-dark)}
+    body.light .search input{background:var(--input-light);border-color:var(--border-light);color:var(--text-light)}
+    #filtersBtn{flex:0 0 auto}
+    #filters{display:none;position:relative;z-index:3;gap:8px;flex-wrap:wrap;margin-top:8px}
+    #filters select{min-height:44px;padding:10px 12px;border-radius:999px;border:1px solid}
+    body.dark #filters select{background:#0d1b33;border-color:#28406f;color:#cde2ff}
+    body.light #filters select{background:#fff;border-color:var(--border-light);color:var(--text-light)}
+    .counter{font-size:14px;opacity:.85}
 
-  /* Helper spacing */
-  .mt-8{ margin-top:8px; } .mt-12{ margin-top:12px; } .mt-16{ margin-top:16px; }
-</style>
+    .list{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
+    @media(min-width:720px){.list{grid-template-columns:1fr 1fr}}
+    .card{border:1px solid;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+    body.dark .card{background:var(--card-dark);border-color:var(--border-dark)}
+    body.light .card{background:var(--card-light);border-color:var(--border-light)}
+    .title{font-weight:800;font-size:16px}
+    .subtitle{font-size:13px;opacity:.85}
+    .inline{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .copy{border:none;background:transparent;cursor:pointer;font-size:16px;min-width:32px;min-height:32px;border-radius:8px}
+    body.dark .copy:hover{background:#0f213f}
+    body.light .copy:hover{background:#eaeefc}
+
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+    .fab{position:fixed;right:16px;bottom:16px;z-index:10}
+
+    .empty{opacity:.7;text-align:center;padding:24px}
+
+    /* ---------- MODAL (spacious) ---------- */
+    dialog{border:none;border-radius:18px;max-width:min(1000px,92vw);width:100%;padding:0;overflow:hidden}
+    body.dark dialog{background:#0b1324;color:var(--text-dark)}
+    body.light dialog{background:#fff;color:var(--text-light);border:1px solid var(--border-light)}
+    .modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid;background:inherit}
+    body.dark .modal-head{border-color:#1e2b46}
+    body.light .modal-head{border-color:var(--border-light)}
+    .modal-body{padding:16px;max-height:70vh;overflow:auto}
+    .modal-foot{position:sticky;bottom:0;z-index:2;display:flex;justify-content:space-between;gap:8px;padding:12px 16px;border-top:1px solid;background:inherit}
+    body.dark .modal-foot{border-color:#1e2b46}
+    body.light .modal-foot{border-color:var(--border-light)}
+    .grid{display:grid;gap:12px}
+    .grid.two{grid-template-columns:1fr}
+    @media(min-width:900px){.grid.two{grid-template-columns:1fr 1fr}}
+    label{font-size:12px;opacity:.8}
+    input[type=text], textarea{width:100%;padding:12px;border-radius:12px;border:1px solid;min-height:44px}
+    body.dark input[type=text], body.dark textarea{background:var(--input-dark);border-color:#1e2a43;color:var(--text-dark)}
+    body.light input[type=text], body.light textarea{background:var(--input-light);border-color:var(--border-light);color:var(--text-light)}
+  </style>
 </head>
-<body>
+<body class="dark">
 
-<header>Contacts CRM</header>
-<div class="container">
-
-  <!-- LOGIN -->
-  <div id="loginView" class="card">
-    <h2 style="margin:0 0 8px 0;">Login</h2>
-    <input id="loginEmail" type="email" placeholder="Email" />
-    <input id="loginPassword" class="mt-12" type="password" placeholder="Password" />
-    <div class="toolbar mt-12">
-      <button onclick="login()">Log in</button>
-      <button class="secondary" onclick="signup()">Create Account</button>
-    </div>
-  </div>
-
-  <!-- CONTACTS LIST -->
-  <div id="contactsView" class="hidden">
-    <div class="card">
-      <div class="toolbar">
-        <input id="searchInput" placeholder="Search name / company / email…" oninput="resetAndLoad()" />
-        <select id="filterCountry" onchange="resetAndLoad()"><option value="">All countries</option></select>
-        <select id="filterCompany" onchange="resetAndLoad()"><option value="">All companies</option></select>
-        <button id="logoutBtn" class="secondary" onclick="logout()">Logout</button>
+  <!-- LOGIN FIRST -->
+  <div id="loginView" class="login-wrap">
+    <div class="login-card">
+      <h1>Contacts CRM</h1>
+      <p>Sign in to continue</p>
+      <div class="login-row" style="margin-bottom:8px">
+        <input type="text" id="loginEmail" placeholder="Email" autocomplete="username" />
+        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
       </div>
-    </div>
-
-    <div id="results"></div>
-    <button id="loadMoreBtn" class="hidden">Load More</button>
-
-    <!-- Floating Add (visible only when allowed) -->
-    <button id="fabAdd" class="fab hidden" title="Add Contact" onclick="showEditor()">＋</button>
-  </div>
-
-  <!-- EDITOR (Add / Edit) -->
-  <div id="editorView" class="card hidden">
-    <h2 id="editorTitle" style="margin:0 0 8px 0;">Add Contact</h2>
-    <div class="grid cols-2">
-      <input id="f_FullName" placeholder="Full Name" />
-      <input id="f_job_title" placeholder="Job Title" />
-      <input id="f_department" placeholder="Department" />
-      <input id="f_company" placeholder="Company" />
-      <input id="f_org_type" placeholder="Org Type e.g., University, Hotel" />
-      <input id="f_address" placeholder="Address" />
-      <input id="f_city" placeholder="City" />
-      <input id="f_country" placeholder="Country" />
-      <input id="f_country_code" placeholder="Country Code (SG, PH, …)" />
-      <input id="f_office_number" placeholder="Office Numbers (comma/semicolon separated)" />
-      <input id="f_mobile_number" placeholder="Mobile Numbers (comma/semicolon separated)" />
-      <input id="f_fax_number" placeholder="Fax Numbers (comma/semicolon separated)" />
-      <input id="f_email" placeholder="Emails (comma/semicolon separated)" />
-      <input id="f_website" placeholder="Website (with or without http)" />
-      <textarea id="f_notes" placeholder="Notes" style="grid-column:1 / -1; min-height:110px;"></textarea>
-      <input id="f_qrtext" placeholder="QR Text (optional)" style="grid-column:1 / -1;" />
-    </div>
-    <div class="toolbar mt-16">
-      <button id="btnSave" onclick="saveCurrent()">Save</button>
-      <button class="secondary" onclick="showContacts()">Cancel</button>
-    </div>
-  </div>
-
-</div>
-
-<!-- Email provider chooser sheet -->
-<div id="emailSheet" class="modal-backdrop hidden" onclick="closeEmailSheet(event)">
-  <div class="sheet" onclick="event.stopPropagation()">
-    <h4>Send email with</h4>
-    <div id="emailChoices"></div>
-    <div class="toolbar">
-      <button class="secondary" onclick="hideEmailSheet()">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Firebase compat -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-<script>
-/* -------------------- Firebase -------------------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyB5lFiB9grDsedR9osrB2zvE71l91zHjz0",
-  authDomain: "va-solutions-eadd3.firebaseapp.com",
-  projectId: "va-solutions-eadd3",
-  storageBucket: "va-solutions-eadd3.appspot.com",
-  messagingSenderId: "365317326824",
-  appId: "1:365317326824:web:d6f4ad9d09c2bf0b20865d",
-  measurementId: "G-SF7LBZWS2V"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-/* -------------------- Role Restriction -------------------- */
-const RESTRICTED_USER = "bernadette@meiwei.com";   // view-only + only tag:"Bernadette"
-
-/* -------------------- State -------------------- */
-let currentUser = null;
-let lastDoc = null;
-const PAGE_SIZE = 25;
-
-/* -------------------- Auth Flow -------------------- */
-auth.onAuthStateChanged(u=>{
-  currentUser = u;
-  if(u){ document.getElementById('loginView').classList.add('hidden'); showContacts(); }
-  else { document.getElementById('loginView').classList.remove('hidden'); hideAll(['contactsView','editorView']); }
-});
-function login(){ auth.signInWithEmailAndPassword(loginEmail.value, loginPassword.value).catch(e=>alert(e.message)); }
-function signup(){ auth.createUserWithEmailAndPassword(loginEmail.value, loginPassword.value).catch(e=>alert(e.message)); }
-function logout(){ auth.signOut(); }
-
-function isRestricted(){ return currentUser && currentUser.email === RESTRICTED_USER; }
-
-/* -------------------- Views -------------------- */
-function hideAll(ids){ ids.forEach(id=>document.getElementById(id).classList.add('hidden')); }
-function showContacts(){
-  hideAll(['editorView']);
-  document.getElementById('contactsView').classList.remove('hidden');
-  // Show FAB only for non-restricted
-  document.getElementById('fabAdd').classList.toggle('hidden', isRestricted());
-  resetAndLoad();
-}
-function showEditor(docId){
-  if(isRestricted()){ alert("You do not have permission to create or edit contacts."); return; }
-  hideAll(['contactsView']);
-  document.getElementById('editorView').classList.remove('hidden');
-  document.getElementById('editorTitle').innerText = docId ? "Edit Contact" : "Add Contact";
-  clearEditor();
-  if(docId){ loadIntoEditor(docId); }
-}
-
-/* -------------------- Filters + Search -------------------- */
-async function resetAndLoad(){
-  lastDoc = null;
-  results.innerHTML = "";
-  await loadFilters();
-  await loadMore();
-}
-async function loadFilters(){
-  // Build filters from a small sample (respect restriction)
-  let q = db.collection('contacts').orderBy('FullName').limit(200);
-  if(isRestricted()){
-    // Prefer server-side filtering; might require composite index with orderBy('FullName')
-    q = db.collection('contacts').where('tag','==','Bernadette').orderBy('FullName').limit(200);
-  }
-  const snap = await q.get().catch(async (err)=>{
-    // Fallback if index is missing: fetch without where and filter client-side
-    const s2 = await db.collection('contacts').orderBy('FullName').limit(200).get();
-    return { docs: s2.docs.filter(d => (d.data().tag||"") === "Bernadette") };
-  });
-
-  const countries = new Set(), companies = new Set();
-  snap.docs.forEach(doc=>{
-    const d = doc.data();
-    if(d.country) countries.add(d.country);
-    if(d.company) companies.add(d.company);
-  });
-  const cSel = document.getElementById('filterCountry');
-  const coSel = document.getElementById('filterCompany');
-  const cVal = cSel.value, coVal = coSel.value;
-  cSel.innerHTML = `<option value="">All countries</option>` + [...countries].sort().map(c=>`<option>${escapeHtml(c)}</option>`).join('');
-  coSel.innerHTML = `<option value="">All companies</option>` + [...companies].sort().map(c=>`<option>${escapeHtml(c)}</option>`).join('');
-  if(cVal) cSel.value = cVal;
-  if(coVal) coSel.value = coVal;
-}
-
-/* -------------------- Pagination Load -------------------- */
-async function loadMore(){
-  const search = searchInput.value.toLowerCase().trim();
-  const fCountry = filterCountry.value;
-  const fCompany = filterCompany.value;
-
-  let q = db.collection('contacts').orderBy('FullName').limit(PAGE_SIZE);
-
-  if(isRestricted()){
-    // Try server-side: only Bernadette-tagged
-    q = db.collection('contacts').where('tag','==','Bernadette').orderBy('FullName').limit(PAGE_SIZE);
-  }
-
-  if(lastDoc){ q = q.startAfter(lastDoc); }
-
-  let snap;
-  try{
-    snap = await q.get();
-  }catch(err){
-    // No composite index? Fallback to client-side filter for restriction + order
-    const s2 = await db.collection('contacts').orderBy('FullName').limit(PAGE_SIZE).get();
-    s2.docs.forEach(d=>{ d._keep = (d.data().tag||"") === "Bernadette"; });
-    snap = { docs: s2.docs.filter(d => d._keep), size: s2.size, empty: s2.size===0 };
-  }
-
-  const rows = [];
-  snap.docs.forEach(doc=>{
-    const d = { id: doc.id, ...doc.data() };
-    if(isRestricted() && (d.tag||"") !== "Bernadette") return; // double-check
-    if(search && !((d.search_keywords||"").toLowerCase().includes(search))) return;
-    if(fCountry && (d.country||"") !== fCountry) return;
-    if(fCompany && (d.company||"") !== fCompany) return;
-    rows.push(d);
-  });
-
-  if(snap.docs && snap.docs.length>0) lastDoc = snap.docs[snap.docs.length-1];
-
-  rows.forEach(renderCard);
-  loadMoreBtn.classList.toggle('hidden', snap.empty || (snap.size && snap.size < PAGE_SIZE));
-}
-
-/* -------------------- Rendering -------------------- */
-function renderCard(d){
-  const el = document.createElement('div');
-  el.className = 'card';
-
-  const emails = (d.email||[]).map(e=>emailPill(e)).join('');
-  const mobiles = (d.mobile_number||[]).map(m=>phonePill(m)).join('');
-  const offices = (d.office_number||[]).map(m=>phonePill(m, true)).join('');
-  const website = d.website ? `<div class="notes">🌐 <a class="link" href="${ensureHttp(d.website)}" target="_blank" rel="noopener">${escapeHtml(d.website)}</a></div>` : '';
-
-  const canEdit = currentUser && !isRestricted();
-
-  el.innerHTML = `
-    <h3>${escapeHtml(d.FullName||'(No name)')}</h3>
-    <div class="sub">${escapeHtml(d.job_title||'')}${d.company?(' · '+escapeHtml(d.company)) : ''}</div>
-    <div class="sub">${escapeHtml(d.department||'')}${d.org_type?(' · '+escapeHtml(d.org_type)) : ''}</div>
-    <div class="sub">${escapeHtml(d.address||'')}${d.city?(', '+escapeHtml(d.city)) : ''}${d.country?(', '+escapeHtml(d.country)) : ''}</div>
-
-    <div class="chips">
-      ${emails}
-      ${mobiles}
-      ${offices}
-      ${d.tag? `<div class="pill">🏷 ${escapeHtml(d.tag)}</div>`:''}
-    </div>
-
-    ${website}
-
-    ${canEdit ? `
-      <div class="actions">
-        <button onclick="showEditor('${d.id}')">Edit</button>
-        <button class="warn" onclick="deleteContact('${d.id}')">Delete</button>
+      <div class="login-row">
+        <button id="loginBtn" class="btn">Sign in</button>
+        <button id="toggleModeLogin" class="btn secondary" title="Light/Dark">🌙 / ☀️</button>
       </div>
-    `: ''}
+      <p id="loginErr" style="color:var(--danger);margin-top:10px;display:none"></p>
+    </div>
+  </div>
 
-    <div class="notes">Notes: ${escapeHtml(d.notes||'—')}</div>
-  `;
-  results.appendChild(el);
-}
+  <!-- APP (hidden until auth) -->
+  <div id="appView" class="app hidden">
+    <header>
+      <!-- Top row: mode/export/counter + user -->
+      <div class="row wrap" style="justify-content:space-between">
+        <div class="row">
+          <button id="toggleMode" class="btn secondary" title="Toggle light/dark">🌙 / ☀️</button>
+          <button id="exportBtn" class="btn secondary" title="Export filtered CSV">⬇️ Export CSV</button>
+          <span id="resultCount" class="counter"></span>
+        </div>
+        <div class="row">
+          <span id="whoami" class="counter"></span>
+          <button id="logoutBtn" class="btn secondary">Sign out</button>
+        </div>
+      </div>
 
-function emailPill(email){
-  const safe = escapeHtml(email);
-  return `
-    <div class="pill" role="button" tabindex="0" onclick="openEmailChooser('${encodeURIComponent(email)}')">
-      📧 <span>${safe}</span>
-    </div>`;
-}
-function phonePill(phone, isOffice=false){
-  const label = isOffice ? '☎️' : '📱';
-  const normalized = toWhatsAppNumber(phone);
-  const safe = escapeHtml(phone);
-  return `
-    <div class="pill">
-      ${label} <a href="https://wa.me/${normalized}" target="_blank" rel="noopener">${safe}</a>
-    </div>`;
-}
+      <!-- Search + Filters toggle row -->
+      <div class="header-row">
+        <div class="search">
+          <span class="icon">🔎</span>
+          <input id="q" placeholder="Search name, company, email, phone, tag…" autocomplete="off" />
+        </div>
+        <button class="btn secondary" id="filtersBtn">Filters</button>
+      </div>
 
-/* -------------------- Email Chooser -------------------- */
-function openEmailChooser(encodedEmail){
-  const email = decodeURIComponent(encodedEmail);
-  const choices = [
-    { name:'Default Mail App', href:`mailto:${encodeURIComponent(email)}` },
-    { name:'Gmail', href:`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}` },
-    { name:'Outlook (Office 365)', href:`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(email)}` },
-    { name:'Yahoo Mail', href:`https://compose.mail.yahoo.com/?to=${encodeURIComponent(email)}` },
-  ];
-  const box = document.getElementById('emailChoices');
-  box.innerHTML = choices.map(c => `
-    <a class="provider" href="${c.href}" target="_blank" rel="noopener">
-      ✉️ <span>${c.name}</span>
-    </a>
-  `).join('');
-  document.getElementById('emailSheet').classList.remove('hidden');
-}
-function hideEmailSheet(){ document.getElementById('emailSheet').classList.add('hidden'); }
-function closeEmailSheet(e){ if(e.target.id==='emailSheet'){ hideEmailSheet(); } }
+      <!-- Filters row -->
+      <div class="row wrap" id="filters">
+        <select id="f_country"><option value="">All Countries</option></select>
+        <select id="f_city"><option value="">All Cities</option></select>
+        <select id="f_org"><option value="">All Org types</option></select>
+        <select id="f_tag"><option value="">All Tags</option></select>
+        <button id="clearFilters" class="btn secondary">Clear</button>
+      </div>
+    </header>
 
-/* -------------------- Create / Edit / Delete -------------------- */
-let editingId = null;
+    <div class="list" id="list"></div>
+    <div id="empty" class="empty" style="display:none">No contacts match your search/filters.</div>
 
-function clearEditor(){
-  editingId = null;
-  const ids = ['f_FullName','f_job_title','f_department','f_company','f_org_type','f_address','f_city','f_country','f_country_code','f_office_number','f_mobile_number','f_fax_number','f_email','f_website','f_notes','f_qrtext'];
-  ids.forEach(id=>document.getElementById(id).value='');
-}
+    <button id="addBtn" class="btn fab">➕ Add</button>
 
-async function loadIntoEditor(id){
-  const doc = await db.collection('contacts').doc(id).get();
-  const d = doc.data(); editingId = id;
-  f_FullName.value = d.FullName||''; f_job_title.value=d.job_title||''; f_department.value=d.department||'';
-  f_company.value=d.company||''; f_org_type.value=d.org_type||''; f_address.value=d.address||'';
-  f_city.value=d.city||''; f_country.value=d.country||''; f_country_code.value=d.country_code||'';
-  f_office_number.value=(d.office_number||[]).join(', '); f_mobile_number.value=(d.mobile_number||[]).join(', ');
-  f_fax_number.value=(d.fax_number||[]).join(', '); f_email.value=(d.email||[]).join(', ');
-  f_website.value=d.website||''; f_notes.value=d.notes||''; f_qrtext.value=d.QR_text||'';
-}
+    <!-- Modal -->
+    <dialog id="modal">
+      <div class="modal-head">
+        <strong id="modalTitle">New contact</strong>
+        <button class="btn secondary" id="closeModal">✕</button>
+      </div>
+      <form id="form" method="dialog">
+        <div class="modal-body">
+          <input type="hidden" id="docId" />
+          <div class="grid two">
+            <div class="col"><label>Full name</label><input type="text" id="FullName" placeholder="e.g., Teo Sze Cheng" required /></div>
+            <div class="col"><label>Job title</label><input type="text" id="job_title" placeholder="Director" /></div>
+            <div class="col"><label>Department</label><input type="text" id="department" placeholder="International Relations" /></div>
+            <div class="col"><label>Company</label><input type="text" id="Company" placeholder="Temasek Polytechnic" /></div>
+            <div class="col"><label>Org type</label><input type="text" id="org_type" placeholder="Education" /></div>
+            <div class="col"><label>Address</label><input type="text" id="Address" placeholder="21 Tampines Avenue 1…" /></div>
+            <div class="col"><label>City</label><input type="text" id="city" placeholder="Singapore" /></div>
+            <div class="col"><label>Country</label><input type="text" id="country" placeholder="Singapore" /></div>
+            <div class="col"><label>Country code</label><input type="text" id="country_code" placeholder="SG" /></div>
+            <div class="col"><label>Office numbers (comma separated)</label><input type="text" id="office_number" placeholder="+6567805331, +6567000000" /></div>
+            <div class="col"><label>Mobile numbers (comma separated)</label><input type="text" id="mobile_number" placeholder="+6591234567" /></div>
+            <div class="col"><label>Fax numbers (comma separated)</label><input type="text" id="fax_number" placeholder="" /></div>
+            <div class="col"><label>Emails (comma separated)</label><input type="text" id="Email" placeholder="name@example.com" /></div>
+            <div class="col"><label>Website</label><input type="text" id="Website" placeholder="https://example.com" /></div>
+            <div class="col"><label>Inferred seniority</label><input type="text" id="inferred_seniority" placeholder="Senior Management" /></div>
+            <div class="col"><label>Name origin</label><input type="text" id="inferred_name_origin" placeholder="Chinese" /></div>
+            <div class="col"><label>Region</label><input type="text" id="inferred_region" placeholder="Southeast Asia" /></div>
+            <div class="col"><label>Contact tier</label><input type="text" id="inferred_contact_tier" placeholder="Tier 2" /></div>
+            <div class="col"><label>Network cluster</label><input type="text" id="network_cluster" placeholder="Singapore Education & Academia" /></div>
+            <div class="col" style="grid-column:1/-1"><label>Suggested next action</label><textarea id="suggested_next_action" rows="2" placeholder="Inquire about…"></textarea></div>
+            <div class="col"><label>Tag</label><input type="text" id="tag" placeholder="Bernadette" /></div>
+            <div class="col"><label>Updated at (auto)</label><input type="text" id="updated_at" disabled /></div>
+            <div class="col" style="grid-column:1/-1"><label>Search keywords (auto)</label><input type="text" id="search_keywords" disabled /></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" id="deleteBtn" class="btn danger">🗑 Delete</button>
+          <div class="row">
+            <button type="button" id="duplicateBtn" class="btn secondary">🧬 Duplicate</button>
+            <button type="submit" id="saveBtn" class="btn">💾 Save</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+  </div>
 
-function splitList(v){ return v ? v.split(/[;,]/).map(s=>s.trim()).filter(Boolean) : []; }
-function buildSearchKeywords(obj){
-  const fields = [
-    obj.FullName, obj.job_title, obj.department, obj.company, (obj.email||[]).join(" "),
-    obj.address, obj.city, obj.country, obj.org_type
-  ].map(x=>x||'');
-  return fields.join(' ').toLowerCase();
-}
+  <script type="module">
+    /* ================= Firebase (v11 CDN) ================= */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getFirestore, collection, onSnapshot, addDoc, setDoc, doc, deleteDoc,
+      serverTimestamp, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-async function saveCurrent(){
-  if(isRestricted()){ alert("You do not have permission to create or edit contacts."); return; }
-  const data = {
-    FullName: f_FullName.value.trim(),
-    job_title: f_job_title.value.trim(),
-    department: f_department.value.trim(),
-    company: f_company.value.trim(),
-    org_type: f_org_type.value.trim(),
-    address: f_address.value.trim(),
-    city: f_city.value.trim(),
-    country: f_country.value.trim(),
-    country_code: f_country_code.value.trim(),
-    office_number: splitList(f_office_number.value),
-    mobile_number: splitList(f_mobile_number.value),
-    fax_number: splitList(f_fax_number.value),
-    email: splitList(f_email.value),
-    website: f_website.value.trim(),
-    notes: f_notes.value.trim(),
-    QR_text: f_qrtext.value.trim(),
-    tag: "Bernadette", // keeping your requested tag default
-    updated_at: new Date().toISOString(),
-    updated_by: currentUser?.email || "",
-  };
-  data.search_keywords = buildSearchKeywords(data);
+    /* -------------------- Firebase -------------------- */
+    const firebaseConfig = {
+      apiKey: "AIzaSyB5lFiB9grDsedR9osrB2zvE71l91zHjz0",
+      authDomain: "va-solutions-eadd3.firebaseapp.com",
+      projectId: "va-solutions-eadd3",
+      storageBucket: "va-solutions-eadd3.appspot.com",
+      messagingSenderId: "365317326824",
+      appId: "1:365317326824:web:d6f4ad9d09c2bf0b20865d",
+      measurementId: "G-SF7LBZWS2V"
+    };
 
-  if(editingId){
-    await db.collection('contacts').doc(editingId).set(data, { merge:true });
-    alert('Updated.');
-  }else{
-    data.created_at = firebase.firestore.FieldValue.serverTimestamp();
-    data.created_by = currentUser?.email || "";
-    await db.collection('contacts').add(data);
-    alert('Created.');
-  }
-  showContacts();
-}
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-async function deleteContact(id){
-  if(isRestricted()){ alert("You do not have permission to delete contacts."); return; }
-  if(confirm('Delete this contact?')){
-    await db.collection('contacts').doc(id).delete();
-    resetAndLoad();
-  }
-}
+    /* ================= Utilities & Theme ================= */
+    const $ = (id)=>document.getElementById(id);
+    const OWNER_EMAIL = "shawn@vizalliance.com.sg";
+    function setMode(mode){
+      document.body.classList.toggle('dark', mode==='dark');
+      document.body.classList.toggle('light', mode==='light');
+      localStorage.setItem('crm.mode', mode);
+    }
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setMode(localStorage.getItem('crm.mode') || (prefersDark ? 'dark' : 'light'));
+    $('toggleModeLogin').addEventListener('click', ()=>{ setMode(document.body.classList.contains('dark')?'light':'dark'); });
+    $('toggleMode').addEventListener('click', ()=>{ setMode(document.body.classList.contains('dark')?'light':'dark'); });
 
-/* -------------------- Utilities -------------------- */
-function ensureHttp(url){
-  const u = (url||'').trim();
-  if(!u) return '';
-  return /^https?:\/\//i.test(u) ? u : ('http://' + u);
-}
-function toWhatsAppNumber(n){
-  if(!n) return '';
-  // strip non-digits; if starts with 00, convert to intl; if starts with 0 we cannot infer country, assume number already includes country code in your data
-  let digits = (n+'').replace(/\D/g,'');
-  // If original had leading +, digits is already fine (e.g., +65 9123 -> 659123)
-  return digits;
-}
-function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-</script>
+    /* ================= Auth Flow ================= */
+    let currentUser = null;
+    $('loginBtn').addEventListener('click', async ()=>{
+      $('loginErr').style.display='none';
+      const email = $('loginEmail').value.trim();
+      const pass = $('loginPassword').value;
+      try{ await signInWithEmailAndPassword(auth, email, pass); }
+      catch(e){ $('loginErr').textContent = e.message || 'Login failed'; $('loginErr').style.display='block'; }
+    });
+    $('logoutBtn').addEventListener('click', ()=>signOut(auth).catch(console.error));
+
+    onAuthStateChanged(auth,(user)=>{
+      currentUser = user || null;
+      $('loginView').classList.toggle('hidden', !!user);
+      $('appView').classList.toggle('hidden', !user);
+      $('whoami').textContent = user ? user.email : '';
+      // lock UI for non-owner
+      const isOwner = !!user && user.email === OWNER_EMAIL;
+      $('addBtn').classList.toggle('hidden', !isOwner);
+      lockFormForPermissions();
+      if(user){ startListenerOnce(); }
+    });
+
+    /* ================= Data ================= */
+    const COL = collection(db, 'contacts');
+    let contacts = [];
+    let started = false;
+    let useOrdered = true;
+    function startListenerOnce(){
+      if(started) return; started = true;
+      try{
+        const qSnap = useOrdered ? query(COL, orderBy('updated_at','desc')) : COL;
+        onSnapshot(qSnap, (snap)=>{
+          contacts = snap.docs.map(d => ({ id:d.id, ...normalizeDoc(d.data()) }));
+          buildFilterOptions();
+          render();
+        }, (err)=>{
+          console.warn('[CRM] ordered snapshot failed; fallback to unordered', err);
+          if(useOrdered){ useOrdered=false; started=false; startListenerOnce(); }
+        });
+      }catch(e){
+        console.warn('[CRM] listener setup failed; fallback unordered', e);
+        if(useOrdered){ useOrdered=false; started=false; startListenerOnce(); }
+      }
+    }
+
+    const arr = v => Array.isArray(v) ? v : (v ? [v] : []);
+    function normalizeDoc(x){
+      const updatedIso = (x.updated_at && typeof x.updated_at.toDate === 'function') ? x.updated_at.toDate().toISOString() : (x.updated_at || '');
+      return {
+        FullName: x.FullName || x.fullname || '',
+        job_title: x.job_title || '',
+        department: x.department || '',
+        Company: x.Company || x.company || '',
+        org_type: x.org_type || '',
+        Address: x.Address || x.address || '',
+        city: x.city || '',
+        country: x.country || '',
+        country_code: x.country_code || '',
+        office_number: arr(x.office_number),
+        mobile_number: arr(x.mobile_number),
+        fax_number: arr(x.fax_number),
+        Email: arr(x.Email || x.email),
+        Website: x.Website || x.website || '',
+        updated_at: updatedIso,
+        inferred_seniority: x.inferred_seniority || '',
+        inferred_name_origin: x.inferred_name_origin || '',
+        inferred_region: x.inferred_region || '',
+        inferred_contact_tier: x.inferred_contact_tier || '',
+        network_cluster: x.network_cluster || '',
+        suggested_next_action: x.suggested_next_action || '',
+        tag: x.tag || '',
+        search_keywords: (x.search_keywords) ? String(x.search_keywords) : buildSearchKeywords(x),
+      };
+    }
+    function buildSearchKeywords(x){
+      const parts = [
+        x.FullName,x.job_title,x.department,x.Company||x.company,x.org_type,x.Address||x.address,x.city,x.country,x.country_code,
+        x.inferred_seniority,x.inferred_name_origin,x.inferred_region,x.inferred_contact_tier,x.network_cluster,x.tag,
+        arr(x.Email).join(' '), arr(x.office_number).join(' '), arr(x.mobile_number).join(' '), arr(x.fax_number).join(' ')
+      ].filter(Boolean);
+      return parts.join(' ').toLowerCase();
+    }
+
+    /* ================= Filters & Search ================= */
+    const filters = ['f_country','f_city','f_org','f_tag'];
+    $('filtersBtn').addEventListener('click', ()=>{
+      const el = $('filters');
+      el.style.display = (el.style.display === 'none' || !el.style.display) ? 'flex' : 'none';
+    });
+    $('clearFilters').addEventListener('click', ()=>{ filters.forEach(id=>$(id).value=''); render(); });
+    $('q').addEventListener('input', ()=>render());
+
+    function buildFilterOptions(){
+      const uniq = (arr)=>Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>String(a).localeCompare(String(b)));
+      fillSelect('f_country', uniq(contacts.map(x=>x.country)));
+      fillSelect('f_city', uniq(contacts.map(x=>x.city)));
+      fillSelect('f_org', uniq(contacts.map(x=>x.org_type)));
+      fillSelect('f_tag', uniq(contacts.map(x=>x.tag)));
+    }
+    function fillSelect(id, items){
+      const el = $(id); const keep = el.value;
+      el.innerHTML = '<option value=\"\">All</option>' + items.map(v=>`<option>${escapeHtml(v)}</option>`).join('');
+      el.value = keep || '';
+      el.onchange = render;
+    }
+
+    /* ================= Rendering ================= */
+    function escapeHtml(s){ return String(s||'').replace(/[&<>\"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+    function firstEmail(r){ return (r.Email && r.Email[0]) || ''; }
+    function firstPhone(r){ return (r.mobile_number && r.mobile_number[0]) || (r.office_number && r.office_number[0]) || ''; }
+    function waLink(num){ const digits = String(num||'').replace(/\D/g,''); return digits ? `https://wa.me/${digits}` : '#'; }
+
+    let lastRenderedRows = [];
+
+    function render(){
+      const q = $('q').value.trim().toLowerCase();
+      const fCountry = $('f_country').value;
+      const fCity = $('f_city').value;
+      const fOrg = $('f_org').value;
+      const fTag = $('f_tag').value;
+
+      let rows = contacts.slice();
+      if(q) rows = rows.filter(r => (r.search_keywords||'').includes(q));
+      if(fCountry) rows = rows.filter(r => r.country === fCountry);
+      if(fCity) rows = rows.filter(r => r.city === fCity);
+      if(fOrg) rows = rows.filter(r => r.org_type === fOrg);
+      if(fTag) rows = rows.filter(r => String(r.tag||'') === fTag);
+
+      lastRenderedRows = rows;
+      $('resultCount').textContent = `${rows.length} results`;
+
+      const list = $('list'); list.innerHTML = '';
+      $('empty').style.display = rows.length ? 'none' : 'block';
+
+      const isOwner = !!currentUser && currentUser.email === OWNER_EMAIL;
+
+      for(const r of rows){
+        const email = firstEmail(r);
+        const phone = firstPhone(r);
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="title">${escapeHtml(r.FullName || '(No name)')}</div>
+          <div class="subtitle">${escapeHtml([r.job_title, r.department].filter(Boolean).join(', '))}</div>
+          <div class="subtitle">${escapeHtml([r.Company, r.city || r.country || ''].filter(Boolean).join(' • '))}</div>
+
+          ${email ? `<div class="inline">Email:
+            <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>
+            <button class="copy" title="Copy email" data-copy="${escapeHtml(email)}">📋</button>
+          </div>` : ''}
+
+          ${phone ? `<div class="inline">Phone:
+            <a href="${waLink(phone)}" target="_blank" rel="noopener">${escapeHtml(phone)}</a>
+            <button class="copy" title="Copy number" data-copy="${escapeHtml(phone)}">📋</button>
+          </div>` : ''}
+
+          ${r.Website ? `<div class="inline">Website:
+            <a href="${escapeHtml(r.Website)}" target="_blank" rel="noopener">${escapeHtml(r.Website)}</a>
+          </div>` : ''}
+        `;
+
+        card.querySelectorAll('.copy').forEach(btn=>{
+          btn.addEventListener('click', async ()=> {
+            try{ await navigator.clipboard.writeText(btn.getAttribute('data-copy')||''); btn.textContent='✅'; setTimeout(()=>btn.textContent='📋',1200);}catch(e){ alert('Copy failed'); }
+          });
+        });
+
+        if(isOwner){
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn secondary';
+          editBtn.textContent = '✏️ Edit';
+          editBtn.addEventListener('click', ()=>openModal(r.id));
+          actions.appendChild(editBtn);
+          card.appendChild(actions);
+        }
+        list.appendChild(card);
+      }
+    }
+
+    /* ================= Export CSV ================= */
+    $('exportBtn').addEventListener('click', ()=>{
+      const cols = ['FullName','Email','Phone','Company','city','country','org_type','tag','Website'];
+      const lines = [cols.join(',')];
+      for(const r of lastRenderedRows){
+        const email = firstEmail(r);
+        const phone = firstPhone(r);
+        const vals = [
+          r.FullName||'',
+          email,
+          phone,
+          r.Company||'',
+          r.city||'',
+          r.country||'',
+          r.org_type||'',
+          r.tag||'',
+          r.Website||'',
+        ].map(v=> `"${String(v).replace(/"/g,'""')}"`);
+        lines.push(vals.join(','));
+      }
+      const blob = new Blob([lines.join('\n')], { type:'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'contacts_export.csv'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    /* ================= Modal + CRUD with RBAC ================= */
+    const modal = $('modal');
+    const form = $('form');
+    $('addBtn').addEventListener('click', ()=>openModal());
+    $('closeModal').addEventListener('click', ()=>modal.close());
+
+    function openModal(id){
+      form.reset();
+      $('docId').value = id || '';
+      $('modalTitle').textContent = id ? 'Edit contact' : 'New contact';
+      $('updated_at').value = new Date().toISOString();
+
+      if(id){
+        const r = contacts.find(x=>x.id===id);
+        if(r) fillForm(r);
+      }
+      lockFormForPermissions();
+      modal.showModal();
+    }
+
+    function fillForm(r){
+      $('docId').value = r.id;
+      const map = ['FullName','job_title','department','Company','org_type','Address','city','country','country_code',
+        'Website','inferred_seniority','inferred_name_origin','inferred_region','inferred_contact_tier','network_cluster',
+        'suggested_next_action','tag','search_keywords'];
+      map.forEach(k=>{ const el = $(k); if(el) el.value = r[k] || ''; });
+      $('office_number').value = (r.office_number||[]).join(', ');
+      $('mobile_number').value = (r.mobile_number||[]).join(', ');
+      $('fax_number').value = (r.fax_number||[]).join(', ');
+      $('Email').value = (r.Email||[]).join(', ');
+      $('updated_at').value = r.updated_at || '';
+    }
+
+    function lockFormForPermissions(){
+      const isOwner = !!currentUser && currentUser.email === OWNER_EMAIL;
+      const inputs = form.querySelectorAll('input, textarea, select');
+      inputs.forEach(el=>{
+        if(el.id==='updated_at' || el.id==='search_keywords'){ el.disabled = true; return; }
+        el.disabled = !isOwner;
+      });
+      ['saveBtn','deleteBtn','duplicateBtn','addBtn'].forEach(id=>{
+        const el=$(id); if(el) el.classList.toggle('hidden', !isOwner);
+      });
+    }
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const isOwner = !!currentUser && currentUser.email === OWNER_EMAIL;
+      if(!isOwner){ alert('Read-only user'); return; }
+      const data = formToData();
+      const id = $('docId').value;
+      if(id){
+        await setDoc(doc(db,'contacts',id), {
+          ...data, updated_at: serverTimestamp(), search_keywords: buildSearchKeywords(data)
+        }, { merge:true });
+      }else{
+        await addDoc(collection(db,'contacts'), {
+          ...data, created_at: serverTimestamp(), updated_at: serverTimestamp(), search_keywords: buildSearchKeywords(data)
+        });
+      }
+      modal.close();
+    });
+
+    $('deleteBtn').addEventListener('click', async ()=>{
+      const isOwner = !!currentUser && currentUser.email === OWNER_EMAIL;
+      if(!isOwner){ alert('Read-only user'); return; }
+      const id = $('docId').value; if(!id) return;
+      if(confirm('Delete this contact? This cannot be undone.')){
+        await deleteDoc(doc(db,'contacts',id));
+        modal.close();
+      }
+    });
+
+    $('duplicateBtn').addEventListener('click', async ()=>{
+      const isOwner = !!currentUser && currentUser.email === OWNER_EMAIL;
+      if(!isOwner){ alert('Read-only user'); return; }
+      const data = formToData();
+      delete data.updated_at;
+      await addDoc(collection(db,'contacts'), {
+        ...data, created_at: serverTimestamp(), updated_at: serverTimestamp(), search_keywords: buildSearchKeywords(data)
+      });
+      alert('Duplicated.');
+    });
+
+    function formToData(){
+      const get = id => ($(id).value || '').trim();
+      const splitCsv = id => get(id).length ? get(id).split(',').map(s=>s.trim()).filter(Boolean) : [];
+      return {
+        FullName: get('FullName'),
+        job_title: get('job_title'),
+        department: get('department'),
+        Company: get('Company'),
+        org_type: get('org_type'),
+        Address: get('Address'),
+        city: get('city'),
+        country: get('country'),
+        country_code: get('country_code'),
+        office_number: splitCsv('office_number'),
+        mobile_number: splitCsv('mobile_number'),
+        fax_number: splitCsv('fax_number'),
+        Email: splitCsv('Email'),
+        Website: get('Website'),
+        inferred_seniority: get('inferred_seniority'),
+        inferred_name_origin: get('inferred_name_origin'),
+        inferred_region: get('inferred_region'),
+        inferred_contact_tier: get('inferred_contact_tier'),
+        network_cluster: get('network_cluster'),
+        suggested_next_action: get('suggested_next_action'),
+        tag: get('tag'),
+      };
+    }
+  </script>
 </body>
 </html>
